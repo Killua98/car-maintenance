@@ -1,0 +1,35 @@
+[project]
+name = "car-maintenance"
+version = "0.1.0"
+description = "Lightweight auto maintenance tracker & reminder service"
+readme = "README.md"
+authors = [
+    { name = "Killua98"}
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.143.0",
+    "pwdlib[argon2,bcrypt]>=0.3.1",
+    "pydantic>=2.14.0",
+    "pyjwt>=2.15.1",
+    "python-dotenv>=1.2.4",
+    "sqlmodel>=0.0.48",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+car-maintenance = "backend.main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["backend", "frontend"]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.16.2",
+    "ipykernel>=7.4.0",
+    "numbers-parser>=4.20.0",
+]

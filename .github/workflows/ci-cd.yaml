@@ -1,0 +1,154 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-scan:
+    name: Gitleaks Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessario per scansionare l'intera history del commit
+
+      - name: Esegui scansione Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  lint:
+    name: Lint & Format Check (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Installa uv e configura Python automaticamente
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Esegui Ruff Lint e Check
+        run: |
+          uv venv
+          uv pip install ruff
+          uv run ruff check .
+          uv run ruff format --check .
+
+  test:
+    name: Run Unit Tests
+    needs: [security-scan, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Installa uv e configura Python automaticamente
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Installa dipendenze di progetto
+        run: |
+          uv venv
+          uv pip install --upgrade pip
+          uv pip install -e .
+
+      - name: Esegui i test con unittest
+        run: |
+          uv run python -m unittest discover -s tests -t .
+
+  container-smoke-test:
+    name: Docker Container Smoke Test
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build immagine Docker per lo smoke test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: car-maintenance:smoke-test
+
+      - name: Avvia il container e attendi l'healthcheck
+        run: |
+          docker run --detach \
+            --name car-maintenance-smoke-test \
+            --env BACKEND_RELOAD=false \
+            car-maintenance:smoke-test
+
+          trap 'docker rm --force car-maintenance-smoke-test >/dev/null 2>&1 || true' EXIT
+
+          if ! timeout 45s sh -c \
+            'until [ "$(docker inspect --format="{{.State.Health.Status}}" car-maintenance-smoke-test)" = healthy ]; do sleep 1; done'; then
+            echo "Il container non è diventato healthy entro 45 secondi."
+            docker logs car-maintenance-smoke-test
+            exit 1
+          fi
+
+  build-and-push:
+    name: Build and Push Docker Image
+    needs: container-smoke-test
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          use: true
+
+      - name: Log in a GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Estrai metadati (tag, etichette) per Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build e Push dell'immagine Docker multi-arch
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64/v8
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

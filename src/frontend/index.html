@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Manuale d'Officina - Gestione Manutenzioni</title>
+    <!-- Font Pixel 32-bit VT323 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <!-- Collegamento al file CSS esterno -->
+    <link rel="stylesheet" href="/static/css/style.css?v=__VERSION__">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<main id="superuser-setup" class="setup-screen" hidden>
+    <section class="setup-card" aria-labelledby="setup-title">
+        <h1 id="setup-title">CONFIGURAZIONE INIZIALE</h1>
+        <p>Il database non contiene ancora utenti. Crea il superuser per iniziare.</p>
+        <form id="superuser-setup-form">
+            <div class="form-group">
+                <label for="setup-full-name">Nome completo <span>(facoltativo)</span></label>
+                <input type="text" id="setup-full-name" name="full_name" maxlength="255" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="setup-email">Email</label>
+                <input type="email" id="setup-email" name="email" maxlength="255" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="setup-password">Password</label>
+                <input type="password" id="setup-password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <small>La password deve contenere almeno 8 caratteri.</small>
+            </div>
+            <p id="setup-error" class="app-error" role="alert" aria-live="polite" hidden></p>
+            <button type="submit" class="btn btn-green" id="setup-submit">CREA SUPERUSER</button>
+        </form>
+    </section>
+</main>
+
+<main id="login-screen" class="setup-screen" hidden>
+    <section class="setup-card" aria-labelledby="login-title">
+        <h1 id="login-title">ACCESSO</h1>
+        <p>Accedi per visualizzare i tuoi veicoli e i relativi dati.</p>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" name="email" maxlength="255" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" name="password" maxlength="128" autocomplete="current-password" required>
+            </div>
+            <p id="login-error" class="app-error" role="alert" aria-live="polite" hidden></p>
+            <button type="submit" class="btn btn-green" id="login-submit">ACCEDI</button>
+        </form>
+        <button class="btn btn-secondary account-switch" id="show-registration" type="button">CREA UN NUOVO ACCOUNT</button>
+        <p id="registration-success" class="registration-success" role="status" hidden></p>
+        <form id="registration-form" hidden>
+            <div class="form-group">
+                <label for="registration-full-name">Nome completo <span>(facoltativo)</span></label>
+                <input type="text" id="registration-full-name" name="full_name" maxlength="255" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="registration-email">Email</label>
+                <input type="email" id="registration-email" name="email" maxlength="255" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="registration-password">Password</label>
+                <input type="password" id="registration-password" name="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+                <small>La password deve contenere almeno 8 caratteri.</small>
+            </div>
+            <p id="registration-error" class="app-error" role="alert" aria-live="polite" hidden></p>
+            <button type="submit" class="btn btn-green" id="registration-submit">REGISTRATI</button>
+            <button class="btn btn-secondary account-switch" id="show-login" type="button">TORNA ALL'ACCESSO</button>
+        </form>
+    </section>
+</main>
+
+<div class="container" id="garage-app" hidden>
+    <!-- Header -->
+    <div class="header">
+        <h1>MANUALE D'OFFICINA</h1>
+        <div class="status-badge" id="global-status-badge">IN ATTESA...</div>
+        <button class="btn btn-secondary" id="profile-button" type="button" hidden>PROFILO</button>
+        <button class="btn btn-secondary" id="logout-button" type="button">ESCI</button>
+    </div>
+    <div id="app-error" class="app-error" role="alert" aria-live="polite" hidden></div>
+
+    <section id="profile-panel" class="user-management-panel" aria-labelledby="profile-title" hidden>
+        <div class="user-management-heading">
+            <h2 id="profile-title">PROFILO</h2>
+            <button class="btn btn-secondary" id="close-profile" type="button">CHIUDI</button>
+        </div>
+        <p id="profile-error" class="app-error" role="alert" aria-live="polite" hidden></p>
+        <p id="profile-success" class="registration-success" role="status" hidden></p>
+        <form id="profile-form" class="admin-create-user-form">
+            <h3>DATI ACCOUNT</h3>
+            <div class="form-group">
+                <label for="profile-full-name">Nome completo</label>
+                <input type="text" id="profile-full-name" name="full_name" maxlength="255" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="profile-email">Email / nome utente</label>
+                <input type="email" id="profile-email" name="email" maxlength="255" autocomplete="email" required>
+            </div>
+            <button class="btn btn-green" id="profile-submit" type="submit">SALVA DATI</button>
+        </form>
+        <form id="password-form" class="admin-create-user-form">
+            <h3>CAMBIA PASSWORD</h3>
+            <div class="form-group">
+                <label for="current-password">Password attuale</label>
+                <input type="password" id="current-password" name="current_password" minlength="8" maxlength="128" autocomplete="current-password" required>
+            </div>
+            <div class="form-group">
+                <label for="new-password">Nuova password</label>
+                <input type="password" id="new-password" name="new_password" minlength="8" maxlength="128" autocomplete="new-password" required>
+            </div>
+            <button class="btn btn-green" id="password-submit" type="submit">AGGIORNA PASSWORD</button>
+        </form>
+        <section id="admin-user-management" aria-labelledby="user-management-title" hidden>
+            <div class="user-management-heading">
+                <h2 id="user-management-title">GESTIONE UTENTI</h2>
+            </div>
+            <p id="user-management-error" class="app-error" role="alert" aria-live="polite" hidden></p>
+            <div class="user-statistics" aria-live="polite">
+                <p>UTENTI ATTIVI: <strong id="active-users-count">0</strong></p>
+                <p>AUTO REGISTRATE: <strong id="total-cars-count">0</strong></p>
+            </div>
+            <form id="admin-create-user-form" class="admin-create-user-form">
+                <h3>CREA UN UTENTE</h3>
+                <div class="form-group">
+                    <label for="admin-user-full-name">Nome completo</label>
+                    <input type="text" id="admin-user-full-name" name="full_name" maxlength="255" autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label for="admin-user-email">Email</label>
+                    <input type="email" id="admin-user-email" name="email" maxlength="255" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-user-password">Password iniziale</label>
+                    <input type="password" id="admin-user-password" name="password" minlength="8" maxlength="128" required>
+                </div>
+                <button class="btn btn-green" id="admin-create-user-submit" type="submit">CREA UTENTE</button>
+            </form>
+            <div class="table-container user-table-container">
+                <table class="responsive-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Utente</th>
+                            <th scope="col">Ruolo</th>
+                            <th scope="col">Stato</th>
+                            <th scope="col">Auto</th>
+                            <th scope="col">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </section>
+
+    <!-- Veicolo (Card Riorganizzata a Griglia Bilanciata) -->
+    <div class="vehicle-card">
+        <div class="vehicle-info">
+            <div class="form-group vehicle-selector-group">
+                <label for="car-selector">SELEZIONA VEICOLO:</label>
+                <div class="vehicle-selector">
+                    <select id="car-selector" onchange="onCarChange(this.value)">
+                        <!-- Popolato dinamicamente da app.js -->
+                    </select>
+                    <button class="btn btn-add-vehicle" type="button" title="Aggiungi nuovo veicolo" onclick="openCarModal(false)">+</button>
+                </div>
+            </div>
+            <p>Targa: <span id="car-plate">--</span></p>
+        </div>
+
+        <button class="km-display km-display-button" id="km-display" type="button" onclick="openMileageModal()" aria-label="Aggiorna il chilometraggio attuale" aria-haspopup="dialog">
+            <span class="km-label">KM ATTUALI</span>
+            <strong id="car-current-km">-- km</strong>
+            <span class="km-hint">Clicca per aggiornare i km</span>
+        </button>
+
+        <div class="vehicle-actions">
+            <button class="btn btn-action" onclick="openModal()">+ REGISTRA INTERVENTO</button>
+            <button class="btn btn-action btn-danger" onclick="deleteActiveCar()">ELIMINA VEICOLO</button>
+        </div>
+    </div>
+
+    <!-- 1. MANUTENZIONI PROGRAMMATE -->
+    <div class="section-title">MANUTENZIONI PROGRAMMATE</div>
+    <div class="scroll-list-frame">
+        <div class="table-container scrollable-list" tabindex="0" role="region" aria-label="Manutenzioni programmate, scorribili">
+            <table class="responsive-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Manutenzione</th>
+                        <th scope="col">Scadenza (Km / Mesi)</th>
+                        <th scope="col">Note</th>
+                        <th scope="col">Stato</th>
+                    </tr>
+                </thead>
+                <tbody id="incoming-table-body">
+                    <!-- Popolato dinamicamente da app.js -->
+                </tbody>
+            </table>
+            <p class="scroll-hint" aria-hidden="true">↓ Scorri per altri elementi</p>
+        </div>
+    </div>
+
+    <!-- 2. STORICO INTERVENTI FATTI -->
+    <div class="section-title">STORICO INTERVENTI EFFETTUATI</div>
+    <div class="scroll-list-frame">
+        <div class="table-container scrollable-list" tabindex="0" role="region" aria-label="Storico interventi, scorribile">
+            <table class="responsive-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Manutenzione</th>
+                        <th scope="col">Data Completamento</th>
+                        <th scope="col">Km Effettuati</th>
+                        <th scope="col">Costo</th>
+                        <th scope="col">Note</th>
+                        <th scope="col">Azione</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body">
+                    <!-- Popolato dinamicamente da app.js -->
+                </tbody>
+            </table>
+            <p class="scroll-hint" aria-hidden="true">↓ Scorri per altri elementi</p>
+        </div>
+    </div>
+
+    <!-- 3. GRAFICO ANDAMENTO CHILOMETRAGGIO -->
+    <div class="section-title mileage-section-title">
+        <span>ANDAMENTO CHILOMETRAGGIO</span>
+        <div class="mileage-actions">
+            <button
+                class="btn btn-small btn-green"
+                id="add-mileage-record-button"
+                type="button"
+                aria-haspopup="dialog"
+                aria-label="Aggiungi una registrazione di chilometraggio"
+                onclick="openMileageModal()"
+            >+ AGGIUNGI KM</button>
+            <button
+                class="btn btn-small mileage-view-toggle"
+                id="mileage-view-toggle"
+                type="button"
+                aria-pressed="false"
+                aria-controls="mileage-chart-view mileage-table-view"
+                onclick="toggleMileageView()"
+            >VISIONE TABULARE</button>
+        </div>
+    </div>
+    <div class="card mileage-card">
+        <div id="mileage-chart-view" class="mileage-chart-view">
+            <canvas id="mileageChart"></canvas>
+        </div>
+        <div id="mileage-table-view" class="scroll-list-frame" hidden>
+            <div class="table-container mileage-table-container scrollable-list" tabindex="0" role="region" aria-label="Storico chilometraggio, scorribile">
+                <table class="responsive-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Data rilevazione</th>
+                            <th scope="col">Chilometraggio</th>
+                            <th scope="col">Azione</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mileage-table-body"></tbody>
+                </table>
+                <p class="scroll-hint" aria-hidden="true">↓ Scorri per altri elementi</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aggiornamento Chilometraggio -->
+<div class="modal" id="mileage-modal">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="mileage-modal-title">
+        <h2 id="mileage-modal-title" class="modal-title">Aggiorna chilometraggio</h2>
+        <form id="mileage-form">
+            <div class="form-group">
+                <label for="current-mileage-input">Km attuali</label>
+                <input type="number" id="current-mileage-input" min="0" step="1" required>
+            </div>
+            <div class="form-group">
+                <label for="current-mileage-date">Data rilevazione</label>
+                <input type="date" id="current-mileage-date" required>
+            </div>
+            <p id="mileage-form-error" class="app-error" role="alert" hidden></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeMileageModal()">ANNULLA</button>
+                <button type="submit" class="btn btn-green" id="save-mileage-button">SALVA</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Form Manutenzione -->
+<div class="modal" id="modal">
+    <div class="modal-content">
+        <h2 class="modal-title">Aggiungi Intervento</h2>
+        <form id="maintenance-form">
+            <div class="form-group">
+                <label for="maintenance-category-select">Categoria Intervento</label>
+                <select id="maintenance-category-select" onchange="handleCategoryChange(this.value)" required>
+                    <option value="" disabled selected>-- Seleziona intervento --</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="custom-category-group" hidden>
+                <label for="custom_category">Nome Intervento Personalizzato</label>
+                <input type="text" id="custom_category" placeholder="es. sostituzione_batteria">
+            </div>
+
+            <div class="form-group">
+                <label for="cost">Costo (€)</label>
+                <input type="number" step="0.01" id="cost" required placeholder="50.00">
+            </div>
+            <div class="form-group">
+                <label for="mileage">Km Effettuati</label>
+                <input type="number" id="mileage" required placeholder="15000">
+            </div>
+            <div class="form-group">
+                <label for="date">Data (AAAA-MM-GG)</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label for="notes">Note</label>
+                <input type="text" id="notes" placeholder="Eventuali note">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">ANNULLA</button>
+                <button type="submit" class="btn btn-green">SALVA</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="maintenance-error-overlay" class="error-overlay" hidden>
+    <div class="error-popup" role="alertdialog" aria-modal="true" aria-labelledby="maintenance-error-title">
+        <button type="button" class="error-popup-close" aria-label="Chiudi avviso" onclick="closeMaintenanceError()">×</button>
+        <h2 id="maintenance-error-title">Errore nei chilometri</h2>
+        <p id="maintenance-error-message" role="alert"></p>
+    </div>
+</div>
+
+<!-- Modal Modifica/Creazione Veicolo -->
+<div class="modal" id="car-modal">
+    <div class="modal-content car-modal-content">
+        <h2 id="car-modal-title" class="modal-title">Benvenuto! Registra il tuo primo veicolo</h2>
+        <form id="car-form">
+            <div class="form-group"><label for="producer">Produttore</label><input type="text" id="producer" required placeholder="es. Fiat"></div>
+            <div class="form-group"><label for="model">Modello</label><input type="text" id="model" required placeholder="es. 500"></div>
+            <div class="form-group"><label for="plate_nr">Targa</label><input type="text" id="plate_nr" required placeholder="es. AB123CD"></div>
+            <div class="form-group"><label for="vin">VIN (Numero Telaio)</label><input type="text" id="vin" required placeholder="es. ZFA312000..."></div>
+            <div class="form-group"><label for="first_registration">Prima Immatricolazione (Data)</label><input type="date" id="first_registration" required></div>
+            <div class="form-group"><label for="initial_mileage">Km Iniziali</label><input type="number" id="initial_mileage" min="0" required placeholder="50000"></div>
+
+            <!-- Manutenzioni Raccomandate Predefinite (Box scrollabile e personalizzabile) -->
+            <div class="form-group recommendations-group">
+                <label class="recommendation-title">MANUTENZIONI RACCOMANDATE PREDEFINITE:</label>
+                <div class="default-recommendations">
+                    
+                    <!-- Riga Cambio Olio -->
+                    <div class="default-rec-item" data-category="cambio_olio">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="cambio_olio" checked onchange="toggleDefaultRecInputs(this)"> Olio
+                        </label>
+                        <input type="text" value="Cambio Olio" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="15000" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="12" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                    <!-- Riga Filtro Aria -->
+                    <div class="default-rec-item" data-category="cambio_filtro_aria">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="cambio_filtro_aria" checked onchange="toggleDefaultRecInputs(this)"> Filtro Aria
+                        </label>
+                        <input type="text" value="Filtro Aria" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="20000" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="12" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                    <!-- Riga Filtro Abitacolo -->
+                    <div class="default-rec-item" data-category="cambio_filtro_abitacolo">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="cambio_filtro_abitacolo" checked onchange="toggleDefaultRecInputs(this)"> Abitacolo
+                        </label>
+                        <input type="text" value="Filtro Abitacolo" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="15000" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="12" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                    <!-- Riga Candele -->
+                    <div class="default-rec-item" data-category="cambio_candele">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="cambio_candele" checked onchange="toggleDefaultRecInputs(this)"> Candele
+                        </label>
+                        <input type="text" value="Candele" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="30000" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="24" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                    <!-- Riga Pastiglie Freni -->
+                    <div class="default-rec-item" data-category="cambio_pastiglie_freni">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="cambio_pastiglie_freni" checked onchange="toggleDefaultRecInputs(this)"> Freni
+                        </label>
+                        <input type="text" value="Pastiglie Freni" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="30000" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                    <!-- Riga Revisione -->
+                    <div class="default-rec-item" data-category="revisione">
+                        <label>
+                            <input type="checkbox" name="default_rec_check" value="revisione" checked onchange="toggleDefaultRecInputs(this)"> Revisione
+                        </label>
+                        <input type="text" value="Revisione Ministeriale" class="default-rec-desc" placeholder="Descrizione">
+                        <input type="number" value="" class="default-rec-km" min="0" step="500" placeholder="Km max">
+                        <input type="number" value="24" class="default-rec-months" min="0" placeholder="Mesi max">
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Scadenze Personalizzate Dinamiche Aggiuntive -->
+            <div class="form-group recommendations-group">
+                <label class="recommendation-title">SCADENZE PERSONALIZZATE AGGIUNTIVE:</label>
+                <div id="custom-recs-container" class="custom-recs-container"></div>
+                <button type="button" class="btn btn-secondary btn-small" onclick="addCustomRecommendationRow()">
+                    + Aggiungi Scadenza Personalizzata
+                </button>
+            </div>
+
+            <div class="modal-actions car-modal-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-car-button" onclick="closeCarModal()" hidden>ANNULLA</button>
+                <button type="submit" class="btn btn-green">SALVA VEICOLO E SCADENZE</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/api.js?v=__VERSION__"></script>
+<script src="/static/js/app.js?v=__VERSION__"></script>
+</body>
+</html>
